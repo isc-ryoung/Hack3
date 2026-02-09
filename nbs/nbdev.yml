@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "Hack3"
+  site-url: "https://isc-ryoung.github.io/Hack3"
+  description: ""
+  repo-branch: main
+  repo-url: "https://github.com/isc-ryoung/Hack3"
