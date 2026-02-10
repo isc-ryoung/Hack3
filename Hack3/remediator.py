@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import json
 import os
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 
 # %% ../nbs/01_remediator.ipynb #problem_type
 class ProblemType(Enum):
@@ -66,38 +66,24 @@ class Resolution:
         return cls(**data)
 
 # %% ../nbs/01_remediator.ipynb #remediator_agent
-from agents import Agent
+from agents import Agent, OpenAIChatCompletionsModel
 
 class RemediatorAgent:
     """Main Remediator agent using OpenAI SDK Agents framework."""
     
-    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: Optional[str] = None):
+    def __init__(self, model):
         """Initialize the Remediator Agent.
         
         Args:
-            api_key: OpenAI API key
-            model: Model to use for the agent
-            base_url: Optional base URL for OpenAI API (for custom endpoints)
+            model: Model to use (string for default models or OpenAIChatCompletionsModel instance for custom endpoints)
         """
-        client_kwargs = {"api_key": api_key}
-        if base_url:
-            client_kwargs["base_url"] = base_url
-            
-        self.client = OpenAI(**client_kwargs)
-        self.model = model
-        self.base_url = base_url
         self.history: List[Dict[str, Any]] = []
         
-        agent_kwargs = {
-            "name": "Remediator",
-            "model": self.model,
-            "instructions": "Resolve problems with InterSystems IRIS instance."
-        }
-        if base_url:
-            agent_kwargs["api_key"] = api_key
-            agent_kwargs["base_url"] = base_url
-            
-        self.agent = Agent(**agent_kwargs)
+        self.agent = Agent(
+            name="Remediator",
+            model=model,
+            instructions="Resolve problems with InterSystems IRIS instance."
+        )
     
     def log_step(self, step: str, data: Any) -> None:
         """Log a workflow step."""
@@ -118,19 +104,18 @@ class RemediatorAgent:
             return error_msg
 
 # %% ../nbs/01_remediator.ipynb #93567aa6
-def get_default_config() -> dict:
+def get_default_config():
     """Get default configuration for the Remediator Agent.
     
     Returns:
-        dict: Configuration dictionary with api_key, model_name, and base_url
+        OpenAIChatCompletionsModel: Configured model object ready to use with custom endpoint
     """
     api_key = os.getenv("OPENAI_API_KEY")
     # model_name = "gpt-5-mini"  # Use available model on internal API
     model_name = "openai/gpt-oss-120b"  # Use available model on internal API
     base_url = "https://plaza.iscinternal.com/genai/v1"
     
-    return {
-        "api_key": api_key,
-        "model_name": model_name,
-        "base_url": base_url
-    }
+    client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    model_obj = OpenAIChatCompletionsModel(model=model_name, openai_client=client)
+    
+    return model_obj
