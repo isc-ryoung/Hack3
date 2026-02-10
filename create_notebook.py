@@ -1,0 +1,255 @@
+import json
+
+notebook = {
+    'cells': [
+        {
+            'cell_type': 'markdown',
+            'id': 'header',
+            'metadata': {},
+            'source': [
+                '# Remediator\n',
+                '\n',
+                '> The main Remediator agent that orchestrates the resolution of IRIS instance problems using IrisDb and Customer agents.\n',
+                '\n',
+                'This module implements the Remediator using the OpenAI SDK Agents framework.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'default_exp',
+            'metadata': {},
+            'outputs': [],
+            'source': ['#| default_exp remediator']
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'imports_nbdev',
+            'metadata': {},
+            'outputs': [],
+            'source': ['#| hide\n', 'from nbdev.showdoc import *']
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'imports_main',
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '#| export\n',
+                'from typing import Dict, List, Optional, Any\n',
+                'from dataclasses import dataclass, field\n',
+                'from enum import Enum\n',
+                'import json\n',
+                'from openai import OpenAI'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'id': 'data_header',
+            'metadata': {},
+            'source': [
+                '## Data Structures\n',
+                '\n',
+                'Define the structured formats for communication between agents.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'problem_type',
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '#| export\n',
+                'class ProblemType(Enum):\n',
+                '    """Types of problems that can occur in IRIS instance."""\n',
+                '    LICENSE = "license"\n',
+                '    CONFIGURATION = "configuration"\n',
+                '    OS_RESOURCE = "os_resource"\n',
+                '    UNKNOWN = "unknown"'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'problem_class',
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '#| export\n',
+                '@dataclass\n',
+                'class Problem:\n',
+                '    """Structured representation of a problem detected in IRIS instance."""\n',
+                '    problem_type: str\n',
+                '    description: str\n',
+                '    severity: str  # \'critical\', \'high\', \'medium\', \'low\'\n',
+                '    log_entry: Optional[str] = None\n',
+                '    affected_component: Optional[str] = None\n',
+                '    \n',
+                '    def to_dict(self) -> Dict[str, Any]:\n',
+                '        return {\n',
+                '            \'problem_type\': self.problem_type,\n',
+                '            \'description\': self.description,\n',
+                '            \'severity\': self.severity,\n',
+                '            \'log_entry\': self.log_entry,\n',
+                '            \'affected_component\': self.affected_component\n',
+                '        }\n',
+                '    \n',
+                '    @classmethod\n',
+                '    def from_dict(cls, data: Dict[str, Any]) -> \'Problem\':\n',
+                '        return cls(**data)'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'resolution_class',
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '#| export\n',
+                '@dataclass\n',
+                'class Resolution:\n',
+                '    """Possible resolution for a problem."""\n',
+                '    action: str\n',
+                '    description: str\n',
+                '    requires_restart: bool = False\n',
+                '    parameters: Dict[str, Any] = field(default_factory=dict)\n',
+                '    \n',
+                '    def to_dict(self) -> Dict[str, Any]:\n',
+                '        return {\n',
+                '            \'action\': self.action,\n',
+                '            \'description\': self.description,\n',
+                '            \'requires_restart\': self.requires_restart,\n',
+                '            \'parameters\': self.parameters\n',
+                '        }\n',
+                '    \n',
+                '    @classmethod\n',
+                '    def from_dict(cls, data: Dict[str, Any]) -> \'Resolution\':\n',
+                '        return cls(**data)'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'id': 'agent_header',
+            'metadata': {},
+            'source': [
+                '## Remediator Agent\n',
+                '\n',
+                'The main Remediator agent implemented using the OpenAI SDK Agents framework.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'remediator_agent',
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '#| export\n',
+                'try:\n',
+                '    from openai.agents import Agent\n',
+                'except ImportError:\n',
+                '    Agent = None\n',
+                '\n',
+                'class RemediatorAgent:\n',
+                '    """Main Remediator agent using OpenAI SDK Agents framework."""\n',
+                '    \n',
+                '    def __init__(self, api_key: str, model: str = "gpt-4o"):\n',
+                '        """Initialize the Remediator Agent.\n',
+                '        \n',
+                '        Args:\n',
+                '            api_key: OpenAI API key\n',
+                '            model: Model to use for the agent\n',
+                '        """\n',
+                '        self.client = OpenAI(api_key=api_key)\n',
+                '        self.model = model\n',
+                '        self.history: List[Dict[str, Any]] = []\n',
+                '        \n',
+                '        if Agent:\n',
+                '            self.agent = Agent(\n',
+                '                name="Remediator",\n',
+                '                model=self.model,\n',
+                '                instructions="Resolve problems with InterSystems IRIS instance."\n',
+                '            )\n',
+                '        else:\n',
+                '            self.agent = None\n',
+                '    \n',
+                '    def log_step(self, step: str, data: Any) -> None:\n',
+                '        """Log a workflow step."""\n',
+                '        self.history.append({\'step\': step, \'data\': data})\n',
+                '    \n',
+                '    async def remediate(self, prompt: str) -> str:\n',
+                '        """Main remediation workflow."""\n',
+                '        self.log_step(\'remediate_start\', {\'prompt\': prompt})\n',
+                '        \n',
+                '        if not self.agent:\n',
+                '            return "OpenAI Agents SDK not available."\n',
+                '        \n',
+                '        try:\n',
+                '            response = await self.agent.run(prompt)\n',
+                '            report = str(response)\n',
+                '            self.log_step(\'remediate_complete\', {\'report\': report})\n',
+                '            return report\n',
+                '        except Exception as e:\n',
+                '            error_msg = f"Error: {str(e)}"\n',
+                '            self.log_step(\'remediate_error\', {\'error\': error_msg})\n',
+                '            return error_msg'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'id': 'example_header',
+            'metadata': {},
+            'source': ['## Usage Example']
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'example1',
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '# Example: Create a Problem instance\n',
+                'problem = Problem(\n',
+                '    problem_type="license",\n',
+                '    description="License has expired",\n',
+                '    severity="critical"\n',
+                ')\n',
+                'print(f"Problem: {problem.description}")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'id': 'export_header',
+            'metadata': {},
+            'source': ['## Export']
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'id': 'export',
+            'metadata': {},
+            'outputs': [],
+            'source': ['#| hide\n', 'import nbdev; nbdev.nbdev_export()']
+        }
+    ],
+    'metadata': {
+        'kernelspec': {
+            'display_name': 'python3',
+            'language': 'python',
+            'name': 'python3'
+        }
+    },
+    'nbformat': 4,
+    'nbformat_minor': 5
+}
+
+# Write without BOM
+import io
+with io.open(r'c:\tmp\Hack3\nbs\01_remediator.ipynb', 'w', encoding='utf-8', newline='\n') as f:
+    json.dump(notebook, f, indent=1, ensure_ascii=False)
+
+print('Notebook created successfully')
