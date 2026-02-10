@@ -19,4 +19,5 @@ d = { 'settings': { 'branch': 'main',
                                                                                   'Hack3/remediator.py'),
                                   'Hack3.remediator.Resolution': ('remediator.html#resolution', 'Hack3/remediator.py'),
                                   'Hack3.remediator.Resolution.from_dict': ('remediator.html#resolution.from_dict', 'Hack3/remediator.py'),
-                                  'Hack3.remediator.Resolution.to_dict': ('remediator.html#resolution.to_dict', 'Hack3/remediator.py')}}}
+                                  'Hack3.remediator.Resolution.to_dict': ('remediator.html#resolution.to_dict', 'Hack3/remediator.py'),
+                                  'Hack3.remediator.get_default_config': ('remediator.html#get_default_config', 'Hack3/remediator.py')}}}
