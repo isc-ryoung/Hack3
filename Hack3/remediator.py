@@ -65,10 +65,7 @@ class Resolution:
         return cls(**data)
 
 # %% ../nbs/01_remediator.ipynb #remediator_agent
-try:
-    from openai.agents import Agent
-except ImportError:
-    Agent = None
+from openai.agents import Agent
 
 class RemediatorAgent:
     """Main Remediator agent using OpenAI SDK Agents framework."""
@@ -84,14 +81,11 @@ class RemediatorAgent:
         self.model = model
         self.history: List[Dict[str, Any]] = []
         
-        if Agent:
-            self.agent = Agent(
-                name="Remediator",
-                model=self.model,
-                instructions="Resolve problems with InterSystems IRIS instance."
-            )
-        else:
-            self.agent = None
+        self.agent = Agent(
+            name="Remediator",
+            model=self.model,
+            instructions="Resolve problems with InterSystems IRIS instance."
+        )
     
     def log_step(self, step: str, data: Any) -> None:
         """Log a workflow step."""
@@ -100,10 +94,7 @@ class RemediatorAgent:
     async def remediate(self, prompt: str) -> str:
         """Main remediation workflow."""
         self.log_step('remediate_start', {'prompt': prompt})
-        
-        if not self.agent:
-            return "OpenAI Agents SDK not available."
-        
+                
         try:
             response = await self.agent.run(prompt)
             report = str(response)
